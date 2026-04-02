@@ -1,3 +1,8 @@
+// ===== MERGE ALL QUESTIONS =====
+if (typeof QUESTIONS_KISO_EXTRA !== 'undefined') QUESTIONS.push(...QUESTIONS_KISO_EXTRA);
+if (typeof QUESTIONS_TEKISEI_EXTRA !== 'undefined') QUESTIONS.push(...QUESTIONS_TEKISEI_EXTRA);
+if (typeof QUESTIONS_NIJI_EXTRA !== 'undefined') QUESTIONS.push(...QUESTIONS_NIJI_EXTRA);
+
 // ===== STATE =====
 let currentMode = 'all';
 let orderMode = 'random';
