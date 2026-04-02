@@ -1,211 +1,201 @@
-// ===== FP3級 学科試験 フラッシュカードアプリ =====
+// ===== STATE =====
+let currentMode = 'all';
+let orderMode = 'random';
+let deck = [];
+let deckIndex = 0;
+let isFlipped = false;
+let categoryFilter = null;
+let reviewFilter = { correct: false, unsure: true, incorrect: true };
 
-const LS_PREFIX = 'fp3_';
-const LS_MASTERED = LS_PREFIX + 'mastered';
+// Session results tracking
+let sessionResults = { correct: 0, unsure: 0, incorrect: 0 };
+
+// LocalStorage keys
+const LS_PREFIX = 'gijutsushi_';
 const LS_MISTAKES = LS_PREFIX + 'mistakes';
 const LS_HISTORY = LS_PREFIX + 'history';
 const LS_LAST_SESSION = LS_PREFIX + 'last_session';
 const LS_MEMO = LS_PREFIX + 'memo';
-const LS_REVIEW_FILTERS = LS_PREFIX + 'review_filters';
 
-let mastered = JSON.parse(localStorage.getItem(LS_MASTERED) || '[]');
-let mistakes = JSON.parse(localStorage.getItem(LS_MISTAKES) || '[]');
-let history = JSON.parse(localStorage.getItem(LS_HISTORY) || '{}');
-let reviewFilters = JSON.parse(localStorage.getItem(LS_REVIEW_FILTERS) || '{"correct":false,"unsure":true,"incorrect":true}');
+// ===== UTILITY =====
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
 
-let deck = [];
-let deckIndex = 0;
-let currentMode = '';
-let currentOrder = '';
-let isFlipped = false;
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+}
 
-const CATEGORIES = [
-    'ライフプランニングと資金計画',
-    'リスク管理',
-    '金融資産運用',
-    'タックスプランニング',
-    '不動産',
-    '相続・事業承継'
-];
+// ===== DATA ACCESS =====
+function getMistakes() {
+    try { return JSON.parse(localStorage.getItem(LS_MISTAKES) || '[]'); }
+    catch { return []; }
+}
+function setMistakes(arr) {
+    localStorage.setItem(LS_MISTAKES, JSON.stringify(arr));
+}
 
-const CATEGORY_COLORS = {
-    'ライフプランニングと資金計画': '#3b82f6',
-    'リスク管理': '#ef4444',
-    '金融資産運用': '#10b981',
-    'タックスプランニング': '#8b5cf6',
-    '不動産': '#f59e0b',
-    '相続・事業承継': '#ec4899'
-};
+function getHistory() {
+    try { return JSON.parse(localStorage.getItem(LS_HISTORY) || '{}'); }
+    catch { return {}; }
+}
+function setHistory(obj) {
+    localStorage.setItem(LS_HISTORY, JSON.stringify(obj));
+}
+
+function recordResult(qNum, result) {
+    const history = getHistory();
+    if (!history[qNum]) {
+        history[qNum] = { correct: 0, incorrect: 0, unsure: 0, last: null, lastDate: null };
+    }
+    if (history[qNum].unsure === undefined) history[qNum].unsure = 0;
+    history[qNum][result]++;
+    history[qNum].last = result;
+    history[qNum].lastDate = Date.now();
+    setHistory(history);
+}
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+function init() {
     updateHomeStats();
-    loadMemo();
-    loadReviewFilters();
-    checkResumeSession();
-    buildCategoryButtons();
+    updateResumeCard();
+    initMemo();
     setupKeyboard();
     setupSwipe();
-});
-
-function buildCategoryButtons() {
-    const container = document.getElementById('category-buttons');
-    CATEGORIES.forEach(cat => {
-        const count = QUESTIONS.filter(q => q.category === cat).length;
-        const color = CATEGORY_COLORS[cat];
-        const btn = document.createElement('button');
-        btn.className = 'menu-card';
-        btn.style.borderLeft = `3px solid ${color}`;
-        btn.onclick = () => startMode('category_' + cat, 'random');
-        btn.innerHTML = `
-            <div class="menu-card-icon" style="color: ${color};">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <rect x="6" y="6" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2"/>
-                    <path d="M11 13h10M11 17h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-            </div>
-            <div class="menu-card-text">
-                <span class="menu-card-title">${cat}</span>
-                <span class="menu-card-sub">この分野のみ出題</span>
-            </div>
-            <div class="menu-card-count">${count}問</div>
-        `;
-        container.appendChild(btn);
-    });
 }
 
-// ===== SCREENS =====
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    window.scrollTo(0, 0);
-}
-
-function goHome() {
-    showScreen('home-screen');
-    updateHomeStats();
-}
-
-// ===== STATS =====
 function updateHomeStats() {
     const total = QUESTIONS.length;
     document.getElementById('stat-total').textContent = total;
-    document.getElementById('total-q-count').textContent = total;
 
-    const answered = Object.keys(history).length;
-    if (answered > 0) {
-        let correctCount = 0, unsureCount = 0, incorrectCount = 0;
-        for (const h of Object.values(history)) {
-            correctCount += h.correct || 0;
-            unsureCount += h.unsure || 0;
-            incorrectCount += h.incorrect || 0;
-        }
-        const totalAttempts = correctCount + unsureCount + incorrectCount;
-        if (totalAttempts > 0) {
-            document.getElementById('stat-accuracy').textContent = Math.round(correctCount / totalAttempts * 100) + '%';
-            document.getElementById('stat-unsure-rate').textContent = Math.round(unsureCount / totalAttempts * 100) + '%';
-            document.getElementById('stat-incorrect-rate').textContent = Math.round(incorrectCount / totalAttempts * 100) + '%';
-        }
-    }
+    const history = getHistory();
+    let totalCorrect = 0, totalUnsure = 0, totalIncorrect = 0, totalAttempts = 0;
+    Object.values(history).forEach(h => {
+        totalCorrect += h.correct;
+        totalUnsure += h.unsure || 0;
+        totalIncorrect += h.incorrect;
+        totalAttempts += h.correct + h.incorrect + (h.unsure || 0);
+    });
 
-    const masteredPct = total > 0 ? Math.round(mastered.length / total * 100) : 0;
-    document.getElementById('progress-fill').style.width = masteredPct + '%';
-    document.getElementById('progress-pct').textContent = masteredPct + '%';
+    document.getElementById('stat-accuracy').textContent =
+        totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) + '%' : '-';
+    document.getElementById('stat-unsure-rate').textContent =
+        totalAttempts > 0 ? Math.round((totalUnsure / totalAttempts) * 100) + '%' : '-';
+    document.getElementById('stat-incorrect-rate').textContent =
+        totalAttempts > 0 ? Math.round((totalIncorrect / totalAttempts) * 100) + '%' : '-';
 
-    // Update counts
-    const marubatsuCount = QUESTIONS.filter(q => q.type === 'marubatsu').length;
-    const santakuCount = QUESTIONS.filter(q => q.type === 'santaku').length;
+    const attemptedCount = Object.keys(history).length;
+    const pct = total > 0 ? Math.round((attemptedCount / total) * 100) : 0;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct + '%';
+
+    // Counts
     document.getElementById('count-all').textContent = total + '問';
-    if (document.getElementById('count-all-seq')) document.getElementById('count-all-seq').textContent = total + '問';
-    document.getElementById('count-marubatsu').textContent = marubatsuCount + '問';
-    document.getElementById('count-santaku').textContent = santakuCount + '問';
+    document.getElementById('count-all-seq').textContent = total + '問';
 
-    updateReviewCounts();
+    // Category counts
+    const kisoCount = QUESTIONS.filter(q => q.category === 'kiso').length;
+    const tekiseiCount = QUESTIONS.filter(q => q.category === 'tekisei').length;
+    const nijiCount = QUESTIONS.filter(q => q.category === 'niji').length;
+    document.getElementById('count-kiso').textContent = kisoCount + '問';
+    document.getElementById('count-tekisei').textContent = tekiseiCount + '問';
+    document.getElementById('count-niji').textContent = nijiCount + '問';
+
+    // Review filter counts
+    updateReviewFilterCounts();
 }
 
-function updateReviewCounts() {
-    const correctList = mastered.filter(n => !mistakes.includes(n));
-    const unsureList = [];
-    const incorrectList = [...mistakes];
+function updateReviewFilterCounts() {
+    const history = getHistory();
+    const mistakes = getMistakes();
+    let correctCount = 0, unsureCount = 0, incorrectCount = 0;
 
-    for (const [numStr, h] of Object.entries(history)) {
-        const num = parseInt(numStr);
-        if (h.last === 'unsure' && !mastered.includes(num) && !mistakes.includes(num)) {
-            unsureList.push(num);
-        }
-    }
+    QUESTIONS.forEach(q => {
+        const hist = history[q.num];
+        const inMistakes = mistakes.includes(q.num);
 
-    document.getElementById('count-filter-correct').textContent = correctList.length;
-    document.getElementById('count-filter-unsure').textContent = unsureList.length;
-    document.getElementById('count-filter-incorrect').textContent = incorrectList.length;
+        if (!inMistakes && hist && hist.last === 'correct') correctCount++;
+        else if (inMistakes && hist && hist.last === 'unsure') unsureCount++;
+        else if (inMistakes) incorrectCount++;
+    });
 
-    let mistakeCount = 0;
-    if (reviewFilters.correct) mistakeCount += correctList.length;
-    if (reviewFilters.unsure) mistakeCount += unsureList.length;
-    if (reviewFilters.incorrect) mistakeCount += incorrectList.length;
-    document.getElementById('count-mistakes').textContent = mistakeCount + '問';
+    document.getElementById('count-filter-correct').textContent = correctCount;
+    document.getElementById('count-filter-unsure').textContent = unsureCount;
+    document.getElementById('count-filter-incorrect').textContent = incorrectCount;
 
-    // Ever incorrect/unsure
-    let everIncorrect = 0, everUnsure = 0;
-    for (const h of Object.values(history)) {
-        if ((h.incorrect || 0) > 0) everIncorrect++;
-        else if ((h.unsure || 0) > 0) everUnsure++;
-    }
+    // Total review count based on active filters
+    let reviewCount = 0;
+    if (reviewFilter.correct) reviewCount += correctCount;
+    if (reviewFilter.unsure) reviewCount += unsureCount;
+    if (reviewFilter.incorrect) reviewCount += incorrectCount;
+    document.getElementById('count-mistakes').textContent = reviewCount + '問';
+
+    // Ever incorrect
+    let everIncorrect = 0;
+    QUESTIONS.forEach(q => {
+        const hist = history[q.num];
+        if (hist && hist.incorrect > 0) everIncorrect++;
+    });
     document.getElementById('count-ever-incorrect').textContent = everIncorrect + '問';
-    document.getElementById('count-ever-unsure').textContent = everUnsure + '問';
 }
 
-// ===== REVIEW FILTERS =====
-function loadReviewFilters() {
-    for (const key of ['correct', 'unsure', 'incorrect']) {
-        const btn = document.getElementById(`filter-${key}-btn`);
-        btn.classList.toggle('active', reviewFilters[key]);
-    }
+function toggleReviewFilter(type) {
+    reviewFilter[type] = !reviewFilter[type];
+    document.getElementById(`filter-${type}-btn`).classList.toggle('active', reviewFilter[type]);
+    updateReviewFilterCounts();
 }
 
-function toggleReviewFilter(key) {
-    reviewFilters[key] = !reviewFilters[key];
-    localStorage.setItem(LS_REVIEW_FILTERS, JSON.stringify(reviewFilters));
-    loadReviewFilters();
-    updateReviewCounts();
+// ===== NAVIGATION =====
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+    categoryFilter = null;
+    updateHomeStats();
+    updateResumeCard();
+    showScreen('home-screen');
 }
 
 // ===== START MODES =====
 function startMode(mode, order) {
     currentMode = mode;
-    currentOrder = order || 'random';
+    orderMode = order || 'random';
+    categoryFilter = null;
+    sessionResults = { correct: 0, unsure: 0, incorrect: 0 };
+
+    const mistakes = getMistakes();
+    const history = getHistory();
 
     if (mode === 'all') {
-        deck = QUESTIONS.map((_, i) => i);
-    } else if (mode === 'marubatsu') {
-        deck = QUESTIONS.map((q, i) => q.type === 'marubatsu' ? i : -1).filter(i => i >= 0);
-    } else if (mode === 'santaku') {
-        deck = QUESTIONS.map((q, i) => q.type === 'santaku' ? i : -1).filter(i => i >= 0);
-    } else if (mode === 'exam_2025_5') {
-        deck = QUESTIONS.map((q, i) => q.exam === '2025年5月' ? i : -1).filter(i => i >= 0);
-    } else if (mode === 'exam_2024_5') {
-        deck = QUESTIONS.map((q, i) => q.exam === '2024年5月' ? i : -1).filter(i => i >= 0);
-    } else if (mode.startsWith('category_')) {
-        const cat = mode.replace('category_', '');
-        deck = QUESTIONS.map((q, i) => q.category === cat ? i : -1).filter(i => i >= 0);
-    } else if (mode === 'mistakes') {
-        deck = buildReviewDeck();
+        deck = QUESTIONS.map((q, i) => i);
+        const label = orderMode === 'sequential' ? '全問（順番）' : '全問（ランダム）';
+        setModeLabel(label, 'var(--accent-soft)', 'var(--accent)');
     } else if (mode === 'ever_incorrect') {
-        deck = [];
-        for (const [numStr, h] of Object.entries(history)) {
-            if ((h.incorrect || 0) > 0) {
-                const idx = QUESTIONS.findIndex(q => q.num === parseInt(numStr));
-                if (idx >= 0) deck.push(idx);
-            }
-        }
-    } else if (mode === 'ever_unsure') {
-        deck = [];
-        for (const [numStr, h] of Object.entries(history)) {
-            if ((h.unsure || 0) > 0 && (h.incorrect || 0) === 0) {
-                const idx = QUESTIONS.findIndex(q => q.num === parseInt(numStr));
-                if (idx >= 0) deck.push(idx);
-            }
-        }
+        deck = QUESTIONS.map((q, i) => i).filter(i => {
+            const hist = history[QUESTIONS[i].num];
+            return hist && hist.incorrect > 0;
+        });
+        setModeLabel('不正解履歴', '#fee2e2', '#dc2626');
+    } else {
+        // Review mode
+        deck = QUESTIONS.map((q, i) => i).filter(i => {
+            const qNum = QUESTIONS[i].num;
+            const hist = history[qNum];
+            const inMistakes = mistakes.includes(qNum);
+
+            if (!inMistakes && hist && hist.last === 'correct') return reviewFilter.correct;
+            if (inMistakes && hist && hist.last === 'unsure') return reviewFilter.unsure;
+            if (inMistakes) return reviewFilter.incorrect;
+            return false;
+        });
+        setModeLabel('復習モード', 'var(--orange-soft)', 'var(--orange)');
     }
 
     if (deck.length === 0) {
@@ -213,157 +203,190 @@ function startMode(mode, order) {
         return;
     }
 
-    if (currentOrder === 'random') shuffle(deck);
+    if (orderMode === 'random') shuffleArray(deck);
     deckIndex = 0;
-
-    const modeLabels = {
-        all: '全問モード',
-        marubatsu: '○×問題',
-        santaku: '三択問題',
-        exam_2025_5: '2025年5月',
-        exam_2024_5: '2024年5月',
-        mistakes: '復習モード',
-        ever_incorrect: '不正解履歴',
-        ever_unsure: '微妙履歴'
-    };
-    let label = modeLabels[mode] || mode;
-    if (mode.startsWith('category_')) label = mode.replace('category_', '');
-    document.getElementById('card-mode-label').textContent = label;
+    isFlipped = false;
 
     showScreen('card-screen');
     renderCard();
 }
 
-function buildReviewDeck() {
-    const result = [];
-    const correctList = mastered.filter(n => !mistakes.includes(n));
+function startCategoryMode(cat) {
+    currentMode = 'category';
+    orderMode = 'random';
+    categoryFilter = cat;
+    sessionResults = { correct: 0, unsure: 0, incorrect: 0 };
 
-    for (let i = 0; i < QUESTIONS.length; i++) {
-        const q = QUESTIONS[i];
-        const h = history[q.num];
-        const inCorrect = correctList.includes(q.num);
-        const inMistake = mistakes.includes(q.num);
-        const inUnsure = h && h.last === 'unsure' && !mastered.includes(q.num) && !mistakes.includes(q.num);
+    deck = QUESTIONS.map((q, i) => i).filter(i => QUESTIONS[i].category === cat);
 
-        if ((reviewFilters.correct && inCorrect) ||
-            (reviewFilters.incorrect && inMistake) ||
-            (reviewFilters.unsure && inUnsure)) {
-            result.push(i);
-        }
+    const catInfo = CATEGORIES[cat];
+    setModeLabel(catInfo.name, `${catInfo.color}22`, catInfo.color);
+
+    if (deck.length === 0) {
+        showToast('対象の問題がありません');
+        return;
     }
-    return result;
+
+    shuffleArray(deck);
+    deckIndex = 0;
+    isFlipped = false;
+
+    showScreen('card-screen');
+    renderCard();
 }
 
-// ===== CARD RENDERING =====
+function setModeLabel(text, bg, color) {
+    const el = document.getElementById('card-mode-label');
+    el.textContent = text;
+    el.style.background = bg;
+    el.style.color = color;
+}
+
+function shuffleDeck() {
+    shuffleArray(deck);
+    deckIndex = 0;
+    isFlipped = false;
+    renderCard();
+    showToast('シャッフルしました');
+}
+
+// ===== RENDER CARD =====
 function renderCard() {
+    if (deckIndex < 0) deckIndex = 0;
     if (deckIndex >= deck.length) {
         showComplete();
         return;
     }
 
     const q = QUESTIONS[deck[deckIndex]];
-    isFlipped = false;
-    document.getElementById('flashcard').classList.remove('flipped');
+    const flashcard = document.getElementById('flashcard');
 
-    // Header
-    document.getElementById('card-q-number').textContent = '問' + q.num;
-    const typeEl = document.getElementById('card-q-type');
-    if (q.type === 'marubatsu') {
-        typeEl.textContent = '○×問題';
-        typeEl.className = 'card-q-type marubatsu';
-    } else {
-        typeEl.textContent = '三択問題';
-        typeEl.className = 'card-q-type santaku';
-    }
-    document.getElementById('card-q-exam').textContent = q.exam;
-    document.getElementById('card-q-category').textContent = q.category;
+    flashcard.classList.remove('flipped');
+    isFlipped = false;
+
+    // Counter
+    document.getElementById('card-counter').textContent = `${deckIndex + 1} / ${deck.length}`;
+
+    // Mini progress
+    const pct = ((deckIndex + 1) / deck.length) * 100;
+    document.getElementById('card-mini-progress-fill').style.width = pct + '%';
+
+    // Front - header
+    const qNum = String(q.num).padStart(3, '0');
+    document.getElementById('card-q-number').textContent = `Q.${qNum}`;
+
+    const catLabel = CATEGORIES[q.category] ? CATEGORIES[q.category].name : '';
+    const subLabel = q.subcategory || '';
+    document.getElementById('card-q-category').textContent = subLabel ? `${catLabel} / ${subLabel}` : catLabel;
 
     // History badge
-    const badge = document.getElementById('card-history-badge');
-    const h = history[q.num];
-    if (h) {
-        const total = (h.correct || 0) + (h.incorrect || 0) + (h.unsure || 0);
-        badge.style.display = '';
-        badge.textContent = `${h.correct || 0}/${total}`;
-        if (h.last === 'correct') { badge.style.background = 'rgba(34,197,94,0.15)'; badge.style.color = '#22c55e'; }
-        else if (h.last === 'incorrect') { badge.style.background = 'rgba(239,68,68,0.15)'; badge.style.color = '#ef4444'; }
-        else { badge.style.background = 'rgba(245,158,11,0.15)'; badge.style.color = '#f59e0b'; }
+    const historyBadge = document.getElementById('card-history-badge');
+    const hist = getHistory()[q.num];
+    if (hist && hist.last) {
+        const total = hist.correct + hist.incorrect + (hist.unsure || 0);
+        let badgeClass, badgeIcon, badgeLabel;
+        if (hist.last === 'correct') {
+            badgeClass = 'badge-correct';
+            badgeIcon = '○';
+            badgeLabel = '前回 正解';
+        } else if (hist.last === 'unsure') {
+            badgeClass = 'badge-unsure';
+            badgeIcon = '△';
+            badgeLabel = '前回 微妙';
+        } else {
+            badgeClass = 'badge-incorrect';
+            badgeIcon = '×';
+            badgeLabel = '前回 不正解';
+        }
+        historyBadge.className = 'card-history-badge ' + badgeClass;
+        let statsText = '';
+        if (total > 1) {
+            statsText = `${hist.correct}正解`;
+            if (hist.unsure) statsText += ` / ${hist.unsure}微妙`;
+            statsText += ` / ${hist.incorrect}不正解`;
+        }
+        historyBadge.innerHTML =
+            `<span class="badge-icon">${badgeIcon}</span>` +
+            `<span class="badge-label">${badgeLabel}</span>` +
+            (statsText ? `<span class="badge-stats">${statsText}</span>` : '');
+        historyBadge.style.display = '';
     } else {
-        badge.style.display = 'none';
+        historyBadge.style.display = 'none';
     }
 
     // Question text
     document.getElementById('card-q-text').textContent = q.question;
 
-    // Choices (for santaku)
+    // Choices
     const choicesEl = document.getElementById('card-choices');
     choicesEl.innerHTML = '';
-    if (q.type === 'santaku' && q.choices) {
-        q.choices.forEach((c, i) => {
+    if (q.choices && q.choices.length > 0) {
+        q.choices.forEach(c => {
             const div = document.createElement('div');
             div.className = 'choice-item';
-            div.innerHTML = `<span class="choice-number">${i + 1}.</span><span>${c}</span>`;
+            div.innerHTML = `<span class="choice-letter">${c.letter}.</span><span class="choice-text">${escapeHtml(c.text)}</span>`;
             choicesEl.appendChild(div);
         });
     }
 
-    // Answer (back)
-    const answerEl = document.getElementById('card-answer');
-    if (q.type === 'marubatsu') {
-        answerEl.textContent = '答え：' + q.answer;
-        answerEl.className = 'card-answer ' + (q.answer === '○' ? 'answer-maru' : 'answer-batsu');
+    // Back - Answer
+    document.getElementById('card-answer').textContent = `正解：${q.answer}`;
+
+    // Back - Explanation
+    const explEl = document.getElementById('card-explanation');
+    if (q.explanation) {
+        explEl.innerHTML = `<h4>解説</h4><p>${escapeHtml(q.explanation)}</p>`;
     } else {
-        const answerText = q.choices ? q.choices[q.answer - 1] : '';
-        answerEl.textContent = '答え：' + q.answer + '. ' + answerText;
-        answerEl.className = 'card-answer answer-choice';
+        explEl.innerHTML = '';
     }
 
-    document.getElementById('card-explanation').textContent = q.explanation;
+    // Back - Incorrect explanations
+    const incorrectEl = document.getElementById('card-incorrect');
+    if (q.incorrect_explanations && q.incorrect_explanations.length > 0) {
+        let html = '<h4>不正解の選択肢の補足</h4>';
+        q.incorrect_explanations.forEach(ie => {
+            html += `<div class="incorrect-item"><span class="choice-letter">${ie.letter}.</span><span><strong>${escapeHtml(ie.text)}</strong>：${escapeHtml(ie.reason)}</span></div>`;
+        });
+        incorrectEl.innerHTML = html;
+    } else {
+        incorrectEl.innerHTML = '';
+    }
 
-    // Progress
-    document.getElementById('card-counter').textContent = `${deckIndex + 1} / ${deck.length}`;
-    document.getElementById('card-mini-progress-fill').style.width = ((deckIndex + 1) / deck.length * 100) + '%';
+    // Back - Detailed explanation
+    const detailedEl = document.getElementById('card-detailed');
+    if (q.detailed_explanation) {
+        detailedEl.innerHTML = `<h4>詳細解説</h4><pre>${escapeHtml(q.detailed_explanation)}</pre>`;
+    } else {
+        detailedEl.innerHTML = '';
+    }
+
+    // Update action button states
+    updateActionButtons(q.num);
 
     // Save session
     saveSession();
 }
 
+function updateActionButtons(qNum) {
+    const mistakes = getMistakes();
+    const hist = getHistory()[qNum];
+
+    const mistakeBtn = document.getElementById('btn-mark-mistake');
+    const unsureBtn = document.getElementById('btn-mark-unsure');
+    const correctBtn = document.getElementById('btn-mark-correct');
+
+    const isInMistakes = mistakes.includes(qNum);
+    const isIncorrect = isInMistakes && (!hist || hist.last === 'incorrect');
+    mistakeBtn.classList.toggle('active', isIncorrect);
+    unsureBtn.classList.toggle('active', !!(hist && hist.last === 'unsure'));
+    correctBtn.classList.toggle('active', !!(hist && hist.last === 'correct'));
+}
+
+// ===== CARD INTERACTIONS =====
 function flipCard() {
+    const flashcard = document.getElementById('flashcard');
     isFlipped = !isFlipped;
-    document.getElementById('flashcard').classList.toggle('flipped', isFlipped);
-}
-
-// ===== CARD ACTIONS =====
-function markCorrect() {
-    const q = QUESTIONS[deck[deckIndex]];
-    if (!mastered.includes(q.num)) mastered.push(q.num);
-    mistakes = mistakes.filter(n => n !== q.num);
-    updateHistory(q.num, 'correct');
-    save();
-    nextCard();
-}
-
-function markMistake() {
-    const q = QUESTIONS[deck[deckIndex]];
-    if (!mistakes.includes(q.num)) mistakes.push(q.num);
-    mastered = mastered.filter(n => n !== q.num);
-    updateHistory(q.num, 'incorrect');
-    save();
-    nextCard();
-}
-
-function markUnsure() {
-    const q = QUESTIONS[deck[deckIndex]];
-    updateHistory(q.num, 'unsure');
-    save();
-    nextCard();
-}
-
-function updateHistory(num, result) {
-    if (!history[num]) history[num] = { correct: 0, incorrect: 0, unsure: 0 };
-    history[num][result]++;
-    history[num].last = result;
-    history[num].lastDate = Date.now();
+    flashcard.classList.toggle('flipped', isFlipped);
 }
 
 function nextCard() {
@@ -382,88 +405,163 @@ function prevCard() {
     }
 }
 
-function shuffleDeck() {
-    const currentQ = deck[deckIndex];
-    shuffle(deck);
-    deckIndex = deck.indexOf(currentQ);
-    if (deckIndex < 0) deckIndex = 0;
-    showToast('シャッフルしました');
-}
-
-// ===== SAVE/LOAD =====
-function save() {
-    localStorage.setItem(LS_MASTERED, JSON.stringify(mastered));
-    localStorage.setItem(LS_MISTAKES, JSON.stringify(mistakes));
-    localStorage.setItem(LS_HISTORY, JSON.stringify(history));
-}
-
-function saveSession() {
+function markMistake() {
     const q = QUESTIONS[deck[deckIndex]];
-    localStorage.setItem(LS_LAST_SESSION, JSON.stringify({
-        mode: currentMode,
-        order: currentOrder,
-        deckIndex: deckIndex,
-        num: q.num,
-        time: Date.now()
-    }));
+    const mistakes = getMistakes();
+    const hist = getHistory()[q.num];
+
+    if (hist && hist.last === 'incorrect') {
+        setMistakes(mistakes.filter(n => n !== q.num));
+        showToast('不正解マークを解除しました');
+    } else {
+        if (!mistakes.includes(q.num)) {
+            mistakes.push(q.num);
+            setMistakes(mistakes);
+        }
+        recordResult(q.num, 'incorrect');
+        sessionResults.incorrect++;
+        showToast('不正解を記録しました');
+    }
+    updateActionButtons(q.num);
 }
 
-function checkResumeSession() {
-    const s = JSON.parse(localStorage.getItem(LS_LAST_SESSION) || 'null');
-    if (!s) return;
-    const card = document.getElementById('resume-card');
-    card.style.display = 'flex';
-    document.getElementById('resume-mode').textContent = s.mode;
-    document.getElementById('resume-question').textContent = '問' + s.num;
+function markUnsure() {
+    const q = QUESTIONS[deck[deckIndex]];
+    const mistakes = getMistakes();
+    const hist = getHistory()[q.num];
 
-    const elapsed = Date.now() - s.time;
-    const mins = Math.floor(elapsed / 60000);
-    const hours = Math.floor(mins / 60);
-    const days = Math.floor(hours / 24);
-    let timeText = mins < 60 ? mins + '分前' : hours < 24 ? hours + '時間前' : days + '日前';
-    document.getElementById('resume-time').textContent = timeText;
+    if (hist && hist.last === 'unsure') {
+        setMistakes(mistakes.filter(n => n !== q.num));
+        showToast('微妙マークを解除しました');
+    } else {
+        if (!mistakes.includes(q.num)) {
+            mistakes.push(q.num);
+            setMistakes(mistakes);
+        }
+        recordResult(q.num, 'unsure');
+        sessionResults.unsure++;
+        showToast('微妙を記録しました');
+    }
+    updateActionButtons(q.num);
+}
+
+function markCorrect() {
+    const q = QUESTIONS[deck[deckIndex]];
+    recordResult(q.num, 'correct');
+
+    const mistakes = getMistakes();
+    if (mistakes.includes(q.num)) {
+        setMistakes(mistakes.filter(n => n !== q.num));
+    }
+
+    sessionResults.correct++;
+    updateActionButtons(q.num);
+    showToast('正解を記録しました');
+}
+
+// ===== COMPLETE SCREEN =====
+function showComplete() {
+    document.getElementById('complete-correct').textContent = sessionResults.correct;
+    document.getElementById('complete-unsure').textContent = sessionResults.unsure;
+    document.getElementById('complete-incorrect').textContent = sessionResults.incorrect;
+
+    showScreen('complete-screen');
+}
+
+// ===== SESSION =====
+function saveSession() {
+    const session = {
+        mode: currentMode,
+        order: orderMode,
+        category: categoryFilter,
+        deckIndex: deckIndex,
+        deck: deck,
+        timestamp: Date.now()
+    };
+    localStorage.setItem(LS_LAST_SESSION, JSON.stringify(session));
+}
+
+function updateResumeCard() {
+    const card = document.getElementById('resume-card');
+    try {
+        const session = JSON.parse(localStorage.getItem(LS_LAST_SESSION));
+        if (!session || !session.deck || session.deck.length === 0) {
+            card.style.display = 'none';
+            return;
+        }
+
+        let modeName = '全問モード';
+        if (session.mode === 'category' && session.category) {
+            modeName = CATEGORIES[session.category] ? CATEGORIES[session.category].name : session.category;
+        } else if (session.mode === 'mistakes') {
+            modeName = '復習モード';
+        } else if (session.mode === 'ever_incorrect') {
+            modeName = '不正解履歴';
+        }
+
+        document.getElementById('resume-mode').textContent = modeName;
+        document.getElementById('resume-question').textContent = `${session.deckIndex + 1}/${session.deck.length}問目`;
+
+        card.style.display = '';
+    } catch {
+        card.style.display = 'none';
+    }
 }
 
 function resumeSession() {
-    const s = JSON.parse(localStorage.getItem(LS_LAST_SESSION) || 'null');
-    if (!s) return;
-    startMode(s.mode, s.order);
-    // Try to restore position
-    if (s.deckIndex < deck.length) {
-        deckIndex = s.deckIndex;
+    try {
+        const session = JSON.parse(localStorage.getItem(LS_LAST_SESSION));
+        if (!session) return;
+
+        currentMode = session.mode;
+        orderMode = session.order;
+        categoryFilter = session.category;
+        deck = session.deck;
+        deckIndex = session.deckIndex;
+        isFlipped = false;
+        sessionResults = { correct: 0, unsure: 0, incorrect: 0 };
+
+        if (currentMode === 'category' && categoryFilter && CATEGORIES[categoryFilter]) {
+            const cat = CATEGORIES[categoryFilter];
+            setModeLabel(cat.name, `${cat.color}22`, cat.color);
+        } else if (currentMode === 'mistakes') {
+            setModeLabel('復習モード', 'var(--orange-soft)', 'var(--orange)');
+        } else if (currentMode === 'ever_incorrect') {
+            setModeLabel('不正解履歴', '#fee2e2', '#dc2626');
+        } else {
+            const label = orderMode === 'sequential' ? '全問（順番）' : '全問（ランダム）';
+            setModeLabel(label, 'var(--accent-soft)', 'var(--accent)');
+        }
+
+        showScreen('card-screen');
+        renderCard();
+    } catch {
+        showToast('セッションの復元に失敗しました');
     }
-    renderCard();
 }
 
 // ===== MEMO =====
+function initMemo() {
+    const memo = localStorage.getItem(LS_MEMO) || '';
+    document.getElementById('memo-input').value = memo;
+}
+
 function saveMemo() {
     localStorage.setItem(LS_MEMO, document.getElementById('memo-input').value);
 }
 
-function loadMemo() {
-    document.getElementById('memo-input').value = localStorage.getItem(LS_MEMO) || '';
-}
-
-// ===== COMPLETION =====
-function showComplete() {
-    document.getElementById('complete-reviewed').textContent = deck.length;
-    document.getElementById('complete-mastered').textContent = mastered.length;
-    showScreen('complete-screen');
-}
-
-// ===== MODAL =====
+// ===== RESET =====
 function confirmReset() {
-    document.getElementById('modal-title').textContent = '確認';
-    document.getElementById('modal-message').textContent = 'すべての学習データをリセットしますか？この操作は取り消せません。';
+    document.getElementById('modal-title').textContent = 'データリセット';
+    document.getElementById('modal-message').textContent = 'すべての学習データを削除します。この操作は取り消せません。';
     document.getElementById('modal-confirm-btn').textContent = 'リセット';
     document.getElementById('modal-confirm-btn').onclick = () => {
-        mastered = [];
-        mistakes = [];
-        history = {};
-        save();
+        localStorage.removeItem(LS_MISTAKES);
+        localStorage.removeItem(LS_HISTORY);
         localStorage.removeItem(LS_LAST_SESSION);
-        closeModal();
         updateHomeStats();
+        updateResumeCard();
+        closeModal();
         showToast('リセットしました');
     };
     document.getElementById('modal-overlay').classList.add('active');
@@ -473,18 +571,22 @@ function closeModal() {
     document.getElementById('modal-overlay').classList.remove('active');
 }
 
-// ===== EXPORT/IMPORT =====
+// ===== EXPORT / IMPORT =====
 function exportData() {
     const data = {
-        mastered, mistakes, history,
-        memo: localStorage.getItem(LS_MEMO) || '',
-        exportDate: new Date().toISOString()
+        version: 1,
+        exportDate: new Date().toISOString(),
+        history: getHistory(),
+        mistakes: getMistakes(),
+        memo: localStorage.getItem(LS_MEMO) || ''
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `fp3_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = url;
+    a.download = `gijutsushi_backup_${new Date().toISOString().slice(0,10)}.json`;
     a.click();
+    URL.revokeObjectURL(url);
     showToast('バックアップを保存しました');
 }
 
@@ -499,17 +601,13 @@ function importData() {
         reader.onload = (ev) => {
             try {
                 const data = JSON.parse(ev.target.result);
-                mastered = data.mastered || [];
-                mistakes = data.mistakes || [];
-                history = data.history || {};
-                save();
-                if (data.memo) {
-                    localStorage.setItem(LS_MEMO, data.memo);
-                    document.getElementById('memo-input').value = data.memo;
-                }
+                if (data.history) setHistory(data.history);
+                if (data.mistakes) setMistakes(data.mistakes);
+                if (data.memo !== undefined) localStorage.setItem(LS_MEMO, data.memo);
                 updateHomeStats();
+                initMemo();
                 showToast('バックアップを復元しました');
-            } catch (err) {
+            } catch {
                 showToast('ファイルの読み込みに失敗しました');
             }
         };
@@ -518,53 +616,87 @@ function importData() {
     input.click();
 }
 
-// ===== TOAST =====
-function showToast(msg) {
-    const toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2000);
-}
-
 // ===== KEYBOARD =====
 function setupKeyboard() {
     document.addEventListener('keydown', (e) => {
         if (!document.getElementById('card-screen').classList.contains('active')) return;
-        if (e.key === 'ArrowRight' || e.key === 'l') nextCard();
-        else if (e.key === 'ArrowLeft' || e.key === 'h') prevCard();
-        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flipCard(); }
-        else if (e.key === '1') markMistake();
-        else if (e.key === '2') markUnsure();
-        else if (e.key === '3') markCorrect();
+
+        // Ignore when typing in inputs
+        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+        switch (e.key) {
+            case ' ':
+            case 'Enter':
+                e.preventDefault();
+                flipCard();
+                break;
+            case 'ArrowRight':
+            case 'l':
+                nextCard();
+                break;
+            case 'ArrowLeft':
+            case 'h':
+                prevCard();
+                break;
+            case 'x':
+                markMistake();
+                break;
+            case 'u':
+                markUnsure();
+                break;
+            case 'o':
+                markCorrect();
+                break;
+            case 'Escape':
+                goHome();
+                break;
+        }
     });
 }
 
 // ===== SWIPE =====
 function setupSwipe() {
-    let startX = 0, startY = 0;
+    let startX = 0;
+    let startY = 0;
+    let isDragging = false;
+
     const area = document.getElementById('card-area');
-    if (!area) return;
 
     area.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
+        isDragging = true;
     }, { passive: true });
 
     area.addEventListener('touchend', (e) => {
-        const dx = e.changedTouches[0].clientX - startX;
-        const dy = e.changedTouches[0].clientY - startY;
-        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-            if (dx < 0) nextCard();
-            else prevCard();
+        if (!isDragging) return;
+        isDragging = false;
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+            if (diffX > 0) {
+                prevCard();
+            } else {
+                nextCard();
+            }
         }
     }, { passive: true });
 }
 
-// ===== UTILS =====
-function shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
+// ===== TOAST =====
+let toastTimeout = null;
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2000);
 }
+
+// ===== LAUNCH =====
+document.addEventListener('DOMContentLoaded', init);

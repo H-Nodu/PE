@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FP3級 学科試験 単語帳</title>
+    <title>技術士試験 問題集</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -15,18 +15,18 @@
             <div class="home-header">
                 <div class="logo-icon">
                     <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                        <rect x="4" y="4" width="40" height="40" rx="8" fill="#10b981" opacity="0.15"/>
-                        <rect x="8" y="8" width="32" height="32" rx="6" stroke="#10b981" stroke-width="2.5"/>
-                        <path d="M16 18h16M16 24h12M16 30h8" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+                        <rect x="4" y="4" width="40" height="40" rx="8" fill="#6366f1" opacity="0.15"/>
+                        <rect x="8" y="8" width="32" height="32" rx="6" stroke="#6366f1" stroke-width="2.5"/>
+                        <path d="M16 18h16M16 24h12M16 30h8" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 </div>
-                <h1>FP3級<span class="subtitle">ファイナンシャル・プランニング技能検定 学科試験</span></h1>
-                <p class="home-desc">全<span id="total-q-count">120</span>問の過去問フラッシュカード</p>
+                <h1>技術士試験<span class="subtitle">一次・二次試験 問題集</span></h1>
+                <p class="home-desc">過去問ベースの問題を詳細解説付きで学習</p>
             </div>
 
             <div class="stats-bar">
                 <div class="stat-item">
-                    <span class="stat-num" id="stat-total">120</span>
+                    <span class="stat-num" id="stat-total">0</span>
                     <span class="stat-label">全問題</span>
                 </div>
                 <div class="stat-divider"></div>
@@ -53,6 +53,7 @@
                 <span class="progress-pct" id="progress-pct">0%</span>
             </div>
 
+            <!-- Resume -->
             <button class="resume-card" id="resume-card" onclick="resumeSession()" style="display:none;">
                 <div class="resume-icon">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -62,11 +63,12 @@
                 <div class="resume-text">
                     <span class="resume-title">前回の続きから</span>
                     <span class="resume-detail">
-                        <span id="resume-mode"></span> ・ <span id="resume-question"></span> ・ <span id="resume-time"></span>
+                        <span id="resume-mode"></span> · <span id="resume-question"></span>
                     </span>
                 </div>
             </button>
 
+            <!-- カテゴリ別モード -->
             <div class="menu-cards">
                 <div class="menu-group-label">全問モード</div>
                 <div class="menu-group">
@@ -80,7 +82,7 @@
                             <span class="menu-card-title">ランダム</span>
                             <span class="menu-card-sub">シャッフルして出題</span>
                         </div>
-                        <div class="menu-card-count" id="count-all">120問</div>
+                        <div class="menu-card-count" id="count-all">0問</div>
                     </button>
                     <button class="menu-card" onclick="startMode('all', 'sequential')">
                         <div class="menu-card-icon">
@@ -95,75 +97,56 @@
                             <span class="menu-card-title">順番通り</span>
                             <span class="menu-card-sub">問題番号の順に出題</span>
                         </div>
-                        <div class="menu-card-count" id="count-all-seq">120問</div>
+                        <div class="menu-card-count" id="count-all-seq">0問</div>
                     </button>
                 </div>
+            </div>
 
-                <div class="menu-group-label" style="margin-top: 8px;">出題形式で選ぶ</div>
-                <div class="menu-group">
-                    <button class="menu-card" onclick="startMode('marubatsu', 'random')" style="border-left: 3px solid #6366f1;">
-                        <div class="menu-card-icon" style="color: #6366f1;">
-                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                                <circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="2"/>
-                                <text x="16" y="21" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold">○×</text>
-                            </svg>
-                        </div>
-                        <div class="menu-card-text">
-                            <span class="menu-card-title">○×問題</span>
-                            <span class="menu-card-sub">正誤判定問題をランダム出題</span>
-                        </div>
-                        <div class="menu-card-count" id="count-marubatsu">60問</div>
-                    </button>
-                    <button class="menu-card" onclick="startMode('santaku', 'random')" style="border-left: 3px solid #f59e0b;">
-                        <div class="menu-card-icon" style="color: #f59e0b;">
-                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                                <rect x="6" y="8" width="20" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
-                                <rect x="6" y="14" width="20" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
-                                <rect x="6" y="20" width="20" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                        </div>
-                        <div class="menu-card-text">
-                            <span class="menu-card-title">三択問題</span>
-                            <span class="menu-card-sub">3択問題をランダム出題</span>
-                        </div>
-                        <div class="menu-card-count" id="count-santaku">60問</div>
-                    </button>
-                </div>
+            <div class="menu-cards">
+                <div class="menu-group-label">科目別モード</div>
+                <button class="menu-card" onclick="startCategoryMode('kiso')" style="border-left: 3px solid #6366f1;">
+                    <div class="menu-card-icon" style="color: #6366f1;">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <path d="M6 6h20v20H6z" stroke="currentColor" stroke-width="2"/>
+                            <path d="M10 12h12M10 16h10M10 20h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="menu-card-text">
+                        <span class="menu-card-title">一次試験 基礎科目</span>
+                        <span class="menu-card-sub">設計・計画、情報、解析、材料、技術連関</span>
+                    </div>
+                    <div class="menu-card-count" id="count-kiso">0問</div>
+                </button>
+                <button class="menu-card" onclick="startCategoryMode('tekisei')" style="border-left: 3px solid #10b981;">
+                    <div class="menu-card-icon" style="color: #10b981;">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 16l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="menu-card-text">
+                        <span class="menu-card-title">一次試験 適性科目</span>
+                        <span class="menu-card-sub">技術者倫理、法規、制度</span>
+                    </div>
+                    <div class="menu-card-count" id="count-tekisei">0問</div>
+                </button>
+                <button class="menu-card" onclick="startCategoryMode('niji')" style="border-left: 3px solid #f59e0b;">
+                    <div class="menu-card-icon" style="color: #f59e0b;">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <path d="M16 6l2.5 6.5H26l-5.5 4.5 2 7L16 20l-6.5 4 2-7L6 12.5h7.5L16 6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="menu-card-text">
+                        <span class="menu-card-title">二次試験</span>
+                        <span class="menu-card-sub">総合技術監理</span>
+                    </div>
+                    <div class="menu-card-count" id="count-niji">0問</div>
+                </button>
+            </div>
 
-                <div class="menu-group-label" style="margin-top: 8px;">試験回で選ぶ</div>
-                <div class="menu-group">
-                    <button class="menu-card" onclick="startMode('exam_2025_5', 'random')" style="border-left: 3px solid #10b981;">
-                        <div class="menu-card-icon" style="color: #10b981;">
-                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                                <rect x="6" y="4" width="20" height="24" rx="3" stroke="currentColor" stroke-width="2"/>
-                                <path d="M10 10h12M10 14h12M10 18h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <div class="menu-card-text">
-                            <span class="menu-card-title">2025年5月</span>
-                            <span class="menu-card-sub">CBT公開問題</span>
-                        </div>
-                        <div class="menu-card-count">60問</div>
-                    </button>
-                    <button class="menu-card" onclick="startMode('exam_2024_5', 'random')" style="border-left: 3px solid #8b5cf6;">
-                        <div class="menu-card-icon" style="color: #8b5cf6;">
-                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                                <rect x="6" y="4" width="20" height="24" rx="3" stroke="currentColor" stroke-width="2"/>
-                                <path d="M10 10h12M10 14h12M10 18h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <div class="menu-card-text">
-                            <span class="menu-card-title">2024年5月</span>
-                            <span class="menu-card-sub">CBT公開問題</span>
-                        </div>
-                        <div class="menu-card-count">60問</div>
-                    </button>
-                </div>
-
-                <div class="menu-group-label" style="margin-top: 8px;">分野で選ぶ</div>
-                <div id="category-buttons" class="menu-group"></div>
-
-                <div class="menu-group-label" style="margin-top: 8px;">復習モード</div>
+            <!-- 復習モード -->
+            <div class="menu-cards">
+                <div class="menu-group-label" style="margin-top: 4px;">復習モード</div>
                 <div class="review-filter-row" id="review-filter-row">
                     <button class="review-filter-btn" id="filter-correct-btn" onclick="toggleReviewFilter('correct')">
                         <span class="review-filter-icon">○</span> 正解 <span class="review-filter-count" id="count-filter-correct">0</span>問
@@ -183,12 +166,11 @@
                     </div>
                     <div class="menu-card-text">
                         <span class="menu-card-title">復習モード</span>
-                        <span class="menu-card-sub">選択したフィルターの問題を出題</span>
+                        <span class="menu-card-sub">選択フィルターの問題を出題</span>
                     </div>
                     <div class="menu-card-count" id="count-mistakes">0問</div>
                 </button>
 
-                <div class="menu-group-label" style="margin-top: 8px;">累計履歴で復習</div>
                 <button class="menu-card" onclick="startMode('ever_incorrect')" style="border-left: 3px solid #dc2626;">
                     <div class="menu-card-icon" style="color: #dc2626;">
                         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -198,26 +180,13 @@
                     </div>
                     <div class="menu-card-text">
                         <span class="menu-card-title">不正解履歴</span>
-                        <span class="menu-card-sub">過去に一度でも不正解にした問題</span>
+                        <span class="menu-card-sub">過去に不正解にした問題</span>
                     </div>
                     <div class="menu-card-count" id="count-ever-incorrect">0問</div>
                 </button>
-                <button class="menu-card" onclick="startMode('ever_unsure')" style="border-left: 3px solid #d97706;">
-                    <div class="menu-card-icon" style="color: #d97706;">
-                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                            <circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="2"/>
-                            <path d="M13 13c0-1.7 1.3-3 3-3s3 1.3 3 3c0 1.2-.7 2.2-1.7 2.6-.5.2-.8.6-.8 1.1V19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <circle cx="16" cy="22" r="1" fill="currentColor"/>
-                        </svg>
-                    </div>
-                    <div class="menu-card-text">
-                        <span class="menu-card-title">微妙履歴</span>
-                        <span class="menu-card-sub">過去に微妙にしたが不正解はない問題</span>
-                    </div>
-                    <div class="menu-card-count" id="count-ever-unsure">0問</div>
-                </button>
             </div>
 
+            <!-- メモ -->
             <div class="memo-section">
                 <label class="memo-label">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -249,7 +218,7 @@
                         <path d="M2 8a6 6 0 0111.3-2.8M14 8a6 6 0 01-11.3 2.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         <path d="M14 2v4h-4M2 14v-4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    学習データをリセット
+                    データリセット
                 </button>
             </div>
         </div>
@@ -265,7 +234,7 @@
                 ホーム
             </button>
             <div class="card-progress-info">
-                <span id="card-counter">1 / 120</span>
+                <span id="card-counter">1 / 30</span>
                 <span id="card-mode-label" class="mode-badge">全問モード</span>
             </div>
             <button class="shuffle-btn" id="btn-shuffle" onclick="shuffleDeck()" title="シャッフル">
@@ -284,11 +253,9 @@
                 <!-- FRONT -->
                 <div class="card-face card-front">
                     <div class="card-q-header">
-                        <span class="card-q-number" id="card-q-number">問1</span>
-                        <span class="card-q-type" id="card-q-type">○×問題</span>
-                        <span class="card-q-exam" id="card-q-exam">2025年5月</span>
+                        <span class="card-q-number" id="card-q-number">Q.001</span>
+                        <span class="card-q-category" id="card-q-category"></span>
                     </div>
-                    <div class="card-q-category" id="card-q-category"></div>
                     <div class="card-history-badge" id="card-history-badge" style="display:none;"></div>
                     <div class="card-q-text" id="card-q-text"></div>
                     <div class="card-choices" id="card-choices"></div>
@@ -298,19 +265,21 @@
                 <div class="card-face card-back">
                     <div class="card-answer" id="card-answer"></div>
                     <div class="card-explanation" id="card-explanation"></div>
+                    <div class="card-incorrect" id="card-incorrect"></div>
+                    <div class="card-detailed" id="card-detailed"></div>
                 </div>
             </div>
         </div>
 
         <div class="card-actions">
-            <button class="action-btn action-mistake" onclick="markMistake()">
+            <button class="action-btn action-mistake" id="btn-mark-mistake" onclick="markMistake()">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="2"/>
                     <path d="M8 8l6 6M14 8l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
                 <span>不正解</span>
             </button>
-            <button class="action-btn action-unsure" onclick="markUnsure()">
+            <button class="action-btn action-unsure" id="btn-mark-unsure" onclick="markUnsure()">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="2"/>
                     <path d="M8.5 8.5a2.5 2.5 0 014.6 1.3c0 1.7-2.6 2-2.6 3.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -318,7 +287,7 @@
                 </svg>
                 <span>微妙</span>
             </button>
-            <button class="action-btn action-correct" onclick="markCorrect()">
+            <button class="action-btn action-correct" id="btn-mark-correct" onclick="markCorrect()">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                     <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="2"/>
                     <path d="M7 11l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -353,17 +322,21 @@
     <!-- COMPLETION SCREEN -->
     <div id="complete-screen" class="screen">
         <div class="complete-container">
-            <div class="complete-icon">🎉</div>
-            <h2>おめでとうございます！</h2>
-            <p id="complete-message">すべてのカードを確認しました</p>
+            <div class="complete-icon">&#127881;</div>
+            <h2>お疲れ様でした！</h2>
+            <p id="complete-message">すべての問題を確認しました</p>
             <div class="complete-stats">
                 <div class="complete-stat">
-                    <span class="complete-stat-num" id="complete-reviewed">0</span>
-                    <span class="complete-stat-label">確認済み</span>
+                    <span class="complete-stat-num" id="complete-correct">0</span>
+                    <span class="complete-stat-label">正解</span>
                 </div>
                 <div class="complete-stat">
-                    <span class="complete-stat-num" id="complete-mastered">0</span>
-                    <span class="complete-stat-label">覚えた</span>
+                    <span class="complete-stat-num" id="complete-unsure">0</span>
+                    <span class="complete-stat-label">微妙</span>
+                </div>
+                <div class="complete-stat">
+                    <span class="complete-stat-num" id="complete-incorrect">0</span>
+                    <span class="complete-stat-label">不正解</span>
                 </div>
             </div>
             <button class="menu-card" onclick="goHome()" style="max-width:320px;margin:0 auto;">
